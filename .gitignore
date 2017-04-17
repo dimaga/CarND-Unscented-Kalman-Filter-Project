@@ -3,3 +3,6 @@
 
 # build files
 build/
+
+# output results
+debug/output.txt
