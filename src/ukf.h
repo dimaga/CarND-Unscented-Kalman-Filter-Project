@@ -1,19 +1,15 @@
-#ifndef UKF_H
-#define UKF_H
+#ifndef SRC_UKF_H_
+#define SRC_UKF_H_
 
 #include "measurement_package.h"
 #include "Eigen/Dense"
-#include <vector>
-#include <string>
-#include <fstream>
-#include "tools.h"
-
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
+#include <cstdint>
 
 class UKF {
-public:
+  using MatrixXd = Eigen::MatrixXd;
+  using VectorXd = Eigen::VectorXd;
 
+ public:
   ///* initially set to false, set to true in first call of ProcessMeasurement
   bool is_initialized_;
 
@@ -33,7 +29,7 @@ public:
   MatrixXd Xsig_pred_;
 
   ///* time when the state is true, in us
-  long long time_us_;
+  std::int64_t time_us_;
 
   ///* Process noise standard deviation longitudinal acceleration in m/s^2
   double std_a_;
@@ -54,7 +50,7 @@ public:
   double std_radphi_;
 
   ///* Radar measurement noise standard deviation radius change in m/s
-  double std_radrd_ ;
+  double std_radrd_;
 
   ///* Weights of sigma points
   VectorXd weights_;
@@ -110,4 +106,4 @@ public:
   void UpdateRadar(MeasurementPackage meas_package);
 };
 
-#endif /* UKF_H */
+#endif  // SRC_UKF_H_

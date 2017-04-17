@@ -1,9 +1,8 @@
-#include "ukf.h"
-#include "tools.h"
 #include "Eigen/Dense"
 #include <iostream>
+#include "tools.h"
+#include "ukf.h"
 
-using namespace std;
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;

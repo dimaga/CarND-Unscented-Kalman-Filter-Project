@@ -1,25 +1,9 @@
-#ifndef TOOLS_H_
-#define TOOLS_H_
+#ifndef SRC_TOOLS_H_
+#define SRC_TOOLS_H_
 #include <vector>
 #include "Eigen/Dense"
 
-class Tools {
-public:
-  /**
-  * Constructor.
-  */
-  Tools();
+Eigen::VectorXd EvaluateRmse(const std::vector<Eigen::VectorXd> &estimations,
+                             const std::vector<Eigen::VectorXd> &ground_truth);
 
-  /**
-  * Destructor.
-  */
-  virtual ~Tools();
-
-  /**
-  * A helper method to calculate RMSE.
-  */
-  Eigen::VectorXd CalculateRMSE(const std::vector<Eigen::VectorXd> &estimations, const std::vector<Eigen::VectorXd> &ground_truth);
-
-};
-
-#endif /* TOOLS_H_ */
+#endif  // SRC_TOOLS_H_

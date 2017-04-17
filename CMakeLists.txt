@@ -5,11 +5,10 @@ cmake_minimum_required (VERSION 3.5)
 add_definitions(-std=c++11)
 
 add_subdirectory(
-        lib/googlemock)
+        lib/googletest)
 
 include_directories(
-        lib/googletest/include
-        lib/googlemock/include)
+        lib/googletest/include)
 
 set(lib_sources
         src/ukf.cpp
@@ -25,4 +24,4 @@ add_library(UnscentedKFLib ${lib_sources})
 add_executable(UnscentedKF src/main.cpp)
 add_executable(UnscentedKFTests ${lib_test_sources})
 target_link_libraries(UnscentedKF UnscentedKFLib)
-target_link_libraries(UnscentedKFTests UnscentedKFLib gmock gmock_main)
+target_link_libraries(UnscentedKFTests UnscentedKFLib gtest gtest_main)
