@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "tools.h"
+#include "test_utils.h"
 
 TEST(Tools, EvaluateRmse) {
   using Eigen::Vector3d;
@@ -12,10 +13,5 @@ TEST(Tools, EvaluateRmse) {
                                          Vector3d{2.0, 2.3, -2.0}
                                      });
 
-  ASSERT_PRED2(
-      ([](const Vector3d &lhs, const Vector3d &rhs) {
-        return lhs.isApprox(rhs, 1e-4);
-      }),
-      (Vector3d{1.0, 2.0, 3.0}),
-      rmse);
+  ASSERT_PRED2(IsEigenEqual(), (Vector3d{1.0, 2.0, 3.0}), rmse);
 }
