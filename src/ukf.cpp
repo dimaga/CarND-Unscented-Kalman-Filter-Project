@@ -51,17 +51,30 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     switch (meas_package.sensor_type_) {
       case MeasurementPackage::LASER: {
         x_.head(2) = meas_package.raw_measurements_;
-        P_(0, 0) = kStdLaspx*kStdLaspx;
-        P_(1, 1) = kStdLaspy*kStdLaspy;
+        P_(kPosX, kPosX) = kStdLaspx * kStdLaspx;
+        P_(kPosY, kPosY) = kStdLaspy * kStdLaspy;
+        break;
       }
-      break;
 
       case MeasurementPackage::RADAR: {
+        const double ro = meas_package.raw_measurements_[0];
+        const double phi = meas_package.raw_measurements_[1];
+        const double ro_dot = meas_package.raw_measurements_[2];
+
+        x_(kPosX) = ro * std::cos(phi);
+        x_(kPosY) = ro * std::sin(phi);
+        x_(kVelocity) = ro_dot;
+        x_(kYawAngle) = phi;
+        x_(kYawRate) = 0.0;
+
+        P_(kPosX, kPosX) = kStdRadr * kStdRadr;
+        P_(kPosY, kPosY) = kStdRadr * kStdRadr;
+        P_(kVelocity, kVelocity) = kStdRadrd * kStdRadrd;
+        break;
       }
-      break;
 
       default:
-        assert(false);
+        assert(false);  // Unknown sensor type
         break;
     }
 
@@ -69,16 +82,26 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     is_initialized_ = true;
   }
 
-  const double dts = (time_us_ - meas_package.timestamp_) * 1e-6;
+  const double delta_t = (time_us_ - meas_package.timestamp_) * 1e-6;
   time_us_ = meas_package.timestamp_;
 
+  Prediction(delta_t);
 
-  /**
-  TODO:
+  switch (meas_package.sensor_type_) {
+    case MeasurementPackage::LASER: {
+      UpdateLidar(meas_package);
+      break;
+    }
 
-  Complete this function! Make sure you switch between lidar and radar
-  measurements.
-  */
+    case MeasurementPackage::RADAR: {
+      UpdateRadar(meas_package);
+      break;
+    }
+
+    default:
+      assert(false);  // Unknown sensor type
+      break;
+  }
 }
 
 /**
@@ -100,6 +123,7 @@ void UKF::Prediction(double delta_t) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
+  assert(MeasurementPackage::LASER == meas_package.sensor_type_);
   /**
   TODO:
 
@@ -115,6 +139,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
  * @param {MeasurementPackage} meas_package
  */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
+  assert(MeasurementPackage::RADAR == meas_package.sensor_type_);
   /**
   TODO:
 
