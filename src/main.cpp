@@ -165,11 +165,11 @@ int main(int argc, char *argv[]) {
     ukf.ProcessMeasurement(measurement_pack_list[k]);
 
     // output the estimation
-    out_file_ << ukf.x_(0) << "\t";  // pos1 - est
-    out_file_ << ukf.x_(1) << "\t";  // pos2 - est
-    out_file_ << ukf.x_(2) << "\t";  // vel_abs -est
-    out_file_ << ukf.x_(3) << "\t";  // yaw_angle -est
-    out_file_ << ukf.x_(4) << "\t";  // yaw_rate -est
+    out_file_ << ukf.x_(UKF::kPosX) << "\t";  // pos1 - est
+    out_file_ << ukf.x_(UKF::kPosY) << "\t";  // pos2 - est
+    out_file_ << ukf.x_(UKF::kVelocity) << "\t";  // vel_abs -est
+    out_file_ << ukf.x_(UKF::kYawAngle) << "\t";  // yaw_angle -est
+    out_file_ << ukf.x_(UKF::kYawRate) << "\t";  // yaw_rate -est
 
     // output the measurements
     if (MeasurementPackage::LASER == measurement.sensor_type_) {

@@ -1,65 +1,78 @@
-#include "Eigen/Dense"
-#include <iostream>
-#include "tools.h"
 #include "ukf.h"
+#include <iostream>
+#include <cassert>
+#include "Eigen/Dense"
+#include "tools.h"
 
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 using std::vector;
 
-/**
- * Initializes Unscented Kalman filter
- */
-UKF::UKF() {
-  // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = true;
+namespace {
+///* Process noise standard deviation longitudinal acceleration in m/s^2
+const double kStdA{30};
 
-  // if this is false, radar measurements will be ignored (except during init)
-  use_radar_ = true;
+///* Process noise standard deviation yaw acceleration in rad/s^2
+const double kStdYawdd{30};
 
-  // initial state vector
-  x_ = VectorXd(5);
+///* Laser measurement noise standard deviation position1 in m
+const double kStdLaspx{0.15};
 
-  // initial covariance matrix
-  P_ = MatrixXd(5, 5);
+///* Laser measurement noise standard deviation position2 in m
+const double kStdLaspy{0.15};
 
-  // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+///* Radar measurement noise standard deviation radius in m
+const double kStdRadr{0.3};
 
-  // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+///* Radar measurement noise standard deviation angle in rad
+const double kStdRadphi{0.03};
 
-  // Laser measurement noise standard deviation position1 in m
-  std_laspx_ = 0.15;
+///* Radar measurement noise standard deviation radius change in m/s
+const double kStdRadrd{0.3};
+}  // namespace
 
-  // Laser measurement noise standard deviation position2 in m
-  std_laspy_ = 0.15;
-
-  // Radar measurement noise standard deviation radius in m
-  std_radr_ = 0.3;
-
-  // Radar measurement noise standard deviation angle in rad
-  std_radphi_ = 0.03;
-
-  // Radar measurement noise standard deviation radius change in m/s
-  std_radrd_ = 0.3;
-
-  /**
-  TODO:
-
-  Complete the initialization. See ukf.h for other member properties.
-
-  Hint: one or more values initialized above might be wildly off...
-  */
+UKF::UKF()
+  : x_(static_cast<int>(UKF::kNx))
+  , P_(static_cast<int>(UKF::kNx), static_cast<int>(UKF::kNx))
+  , Xsig_pred_(static_cast<int>(UKF::kNx),
+               static_cast<int>(UKF::kNxAug * 2 + 1)) {
+  x_.setZero();
+  P_.setIdentity();
+  P_ *= 10000;
+  Xsig_pred_.setZero();
 }
-
-UKF::~UKF() {}
 
 /**
  * @param {MeasurementPackage} meas_package The latest measurement data of
  * either radar or laser.
  */
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
+  if (!is_initialized_) {
+    switch (meas_package.sensor_type_) {
+      case MeasurementPackage::LASER: {
+        x_.head(2) = meas_package.raw_measurements_;
+        P_(0, 0) = kStdLaspx*kStdLaspx;
+        P_(1, 1) = kStdLaspy*kStdLaspy;
+      }
+      break;
+
+      case MeasurementPackage::RADAR: {
+      }
+      break;
+
+      default:
+        assert(false);
+        break;
+    }
+
+    time_us_ = meas_package.timestamp_;
+    is_initialized_ = true;
+  }
+
+  const double dts = (time_us_ - meas_package.timestamp_) * 1e-6;
+  time_us_ = meas_package.timestamp_;
+
+
   /**
   TODO:
 

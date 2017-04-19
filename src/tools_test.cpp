@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
-#include "tools.h"
 #include "test_utils.h"
+#include "tools.h"
 
 TEST(Tools, EvaluateRmse) {
   using Eigen::Vector3d;

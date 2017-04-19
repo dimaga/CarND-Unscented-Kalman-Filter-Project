@@ -4,20 +4,35 @@
 #include "measurement_package.h"
 #include "Eigen/Dense"
 #include <cstdint>
+#include <cstddef>
 
 class UKF {
   using MatrixXd = Eigen::MatrixXd;
   using VectorXd = Eigen::VectorXd;
 
  public:
+  enum {
+    kPosX,
+    kPosY,
+    kVelocity,
+    kYawAngle,
+    kYawRate,
+
+    kNx,
+
+    kNoiseVelociy = kNx,
+    kNoiseYawRate,
+    kNxAug
+  };
+
   ///* initially set to false, set to true in first call of ProcessMeasurement
-  bool is_initialized_;
+  bool is_initialized_{false};
 
   ///* if this is false, laser measurements will be ignored (except for init)
-  bool use_laser_;
+  bool use_laser_{true};
 
   ///* if this is false, radar measurements will be ignored (except for init)
-  bool use_radar_;
+  bool use_radar_{true};
 
   ///* state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   VectorXd x_;
@@ -29,56 +44,17 @@ class UKF {
   MatrixXd Xsig_pred_;
 
   ///* time when the state is true, in us
-  std::int64_t time_us_;
-
-  ///* Process noise standard deviation longitudinal acceleration in m/s^2
-  double std_a_;
-
-  ///* Process noise standard deviation yaw acceleration in rad/s^2
-  double std_yawdd_;
-
-  ///* Laser measurement noise standard deviation position1 in m
-  double std_laspx_;
-
-  ///* Laser measurement noise standard deviation position2 in m
-  double std_laspy_;
-
-  ///* Radar measurement noise standard deviation radius in m
-  double std_radr_;
-
-  ///* Radar measurement noise standard deviation angle in rad
-  double std_radphi_;
-
-  ///* Radar measurement noise standard deviation radius change in m/s
-  double std_radrd_;
-
-  ///* Weights of sigma points
-  VectorXd weights_;
-
-  ///* State dimension
-  int n_x_;
-
-  ///* Augmented state dimension
-  int n_aug_;
-
-  ///* Sigma point spreading parameter
-  double lambda_;
+  std::int64_t time_us_{0};
 
   ///* the current NIS for radar
-  double NIS_radar_;
+  double NIS_radar_{0};
 
   ///* the current NIS for laser
-  double NIS_laser_;
+  double NIS_laser_{0};
 
-  /**
-   * Constructor
-   */
+
   UKF();
-
-  /**
-   * Destructor
-   */
-  virtual ~UKF();
+  virtual ~UKF() = default;
 
   /**
    * ProcessMeasurement
