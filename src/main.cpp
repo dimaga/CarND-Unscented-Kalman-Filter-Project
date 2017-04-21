@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
     out_file_ << ukf.x_(UKF::kPosX) << "\t";
     out_file_ << ukf.x_(UKF::kPosY) << "\t";
     out_file_ << ukf.x_(UKF::kVelocity) << "\t";
-    out_file_ << ukf.x_(UKF::kYawAngle) << "\t";
+    out_file_ << ukf.x_(UKF::kYaw) << "\t";
     out_file_ << ukf.x_(UKF::kYawRate) << "\t";
 
     // output the measurements

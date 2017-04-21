@@ -15,13 +15,13 @@ class UKF {
     kPosX,
     kPosY,
     kVelocity,
-    kYawAngle,
+    kYaw,
     kYawRate,
 
     kNx,
 
-    kNoiseVelociy = kNx,
-    kNoiseYawRate,
+    kNoiseAccel = kNx,
+    kNoiseYawAccel,
     kNxAug
   };
 

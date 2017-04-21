@@ -31,6 +31,23 @@ TEST(UkfProcessMeasurement, FirstRadar) {
   ASSERT_NEAR(1.0 / std::sqrt(2), ukf.x_(UKF::kPosX), 1e-10);
   ASSERT_NEAR(1.0 / std::sqrt(2), ukf.x_(UKF::kPosY), 1e-10);
   ASSERT_NEAR(3.0, ukf.x_(UKF::kVelocity), 1e-10);
-  ASSERT_NEAR(M_PI / 4, ukf.x_(UKF::kYawAngle), 1e-10);
+  ASSERT_NEAR(M_PI / 4, ukf.x_(UKF::kYaw), 1e-10);
   ASSERT_NEAR(0.0, ukf.x_(UKF::kYawRate), 1e-10);
 }
+
+TEST(UkfPrediction, StraightLine) {
+  UKF ukf;
+  ukf.x_ << 1.0, 2.0, 3.0, 0.0, 0.0;
+  ukf.P_.setIdentity();
+  ukf.P_ *= 0.0001;
+
+  ukf.Prediction(1.0);
+
+  Eigen::VectorXd expected(5);
+  expected << 4.0, 2.0, 3.0, 0.0, 0.0;
+
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+  ASSERT_PRED2(IsEigenEqual(), ukf.P_, ukf.P_.transpose());
+  ASSERT_GT(ukf.P_.eigenvalues()[0].real(), 0.0001);
+}
+
