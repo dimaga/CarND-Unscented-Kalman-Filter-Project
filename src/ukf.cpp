@@ -35,7 +35,7 @@ const double kStdRadrd{0.3};
 // of Kalman and Bayesian Filters in Python by Roger R Labbe Jr book,
 // January 14, 2017 edition
 
-const double kAlpha{1.0};
+const double kAlpha{1e-3};
 
 const double kBeta{2.0};
 
@@ -235,6 +235,8 @@ void UKF::Prediction(double delta_t) {
 
   if (std::abs(sinYaw) > 1e-10 || std::abs(cosYaw) > 1e-10) {
     x_[kYaw] = std::atan2(sinYaw, cosYaw);
+  } else {
+    x_[kYaw] = Xsig_pred_.col(0)(kYaw);
   }
 
   P_.setZero();

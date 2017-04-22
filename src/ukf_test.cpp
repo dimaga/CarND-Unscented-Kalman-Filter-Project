@@ -35,6 +35,20 @@ TEST(UkfProcessMeasurement, FirstRadar) {
   ASSERT_NEAR(0.0, ukf.x_(UKF::kYawRate), 1e-10);
 }
 
+TEST(UkfPrediction, NoMotion) {
+  UKF ukf;
+  ukf.x_ << 10.0, 20.0, 0.0, 0.1, 0.0;
+  ukf.P_.setIdentity();
+  ukf.P_ *= 100.0;
+
+  ukf.Prediction(1.0);
+
+  Eigen::VectorXd expected(5);
+  expected << 10.0, 20.0, 0.0, 0.1, 0.0;
+
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+}
+
 TEST(UkfPrediction, StraightLine) {
   UKF ukf;
   ukf.x_ << 1.0, 2.0, 3.0, 0.0, 0.0;
