@@ -65,3 +65,34 @@ TEST(UkfPrediction, StraightLine) {
   ASSERT_GT(ukf.P_.eigenvalues()[0].real(), 0.0001);
 }
 
+TEST(UkfPrediction, FullCircleInOneUpdate) {
+  UKF ukf;
+  ukf.x_ << 1.0, 2.0, 2 * M_PI, 0.0, 2 * M_PI;
+  ukf.P_.setIdentity();
+  ukf.P_ *= 0.0001;
+
+  ukf.Prediction(1.0);
+
+  Eigen::VectorXd expected(5);
+  expected << 1.0, 2.0, 2 * M_PI, 0.0, 2 * M_PI;
+
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+  ASSERT_PRED2(IsEigenEqual(), ukf.P_, ukf.P_.transpose());
+  ASSERT_GT(ukf.P_.eigenvalues()[0].real(), 0.0001);
+}
+
+TEST(UkfPrediction, QuaterCircleInOneUpdate) {
+  UKF ukf;
+  ukf.x_ << 1.0, 0.0, 2 * M_PI, M_PI / 2, 2 * M_PI;
+  ukf.P_.setIdentity();
+  ukf.P_ *= 0.0001;
+
+  ukf.Prediction(0.25);
+
+  Eigen::VectorXd expected(5);
+  expected << 0.0, 1.0, 2 * M_PI, M_PI, 2 * M_PI;
+
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+  ASSERT_PRED2(IsEigenEqual(), ukf.P_, ukf.P_.transpose());
+  ASSERT_GT(ukf.P_.eigenvalues()[0].real(), 0.0001);
+}

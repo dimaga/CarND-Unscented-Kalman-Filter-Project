@@ -35,7 +35,7 @@ const double kStdRadrd{0.3};
 // of Kalman and Bayesian Filters in Python by Roger R Labbe Jr book,
 // January 14, 2017 edition
 
-const double kAlpha{1e-3};
+const double kAlpha{1.0};
 
 const double kBeta{2.0};
 
@@ -258,14 +258,24 @@ void UKF::Prediction(double delta_t) {
  */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
   assert(MeasurementPackage::LASER == meas_package.sensor_type_);
-  /**
-  TODO:
 
-  Complete this function! Use lidar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
+  //TODO: Replace with UKF, compare RMSE. If the same, keep linear UKF with
+  //TODO: stable covariance matrix calculation
 
-  You'll also need to calculate the lidar NIS.
-  */
+  MatrixXd R(2, 2);
+  R.setIdentity();
+  R(0, 0) = kStdLaspx * kStdLaspx;
+  R(1, 1) = kStdLaspy * kStdLaspy;
+
+  MatrixXd H(2, 5);
+  H.setZero();
+  H(0, 0) = H(1, 1) = 1.0;
+
+  const MatrixXd S = (H * P_ * H.transpose() + R);
+  const MatrixXd K = (P_ * H.transpose() * S.inverse());
+  const VectorXd y = meas_package.raw_measurements_ - H * x_;
+  x_ += K * y;
+  P_ -= (K * H * P_).eval();
 }
 
 /**
