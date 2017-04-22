@@ -105,23 +105,25 @@ TEST(UkfProcessMeasurement, LaserTrajectory) {
 
   measurement.timestamp_ = 0;
 
-  for (int i = 0; i <= 180; ++i) {
-    const double angle = 2 * i * M_PI / 180.0;
+  const double kRadius = 30;
 
-    measurement.raw_measurements_
-        << 3.0 * std::cos(angle), 3.0 * std::sin(angle);
+  for (int degrees = 0; degrees <= 360; ++degrees) {
+    if (degrees < 180) {
+      const double radians = degrees * M_PI / 180.0;
 
-    ukf.ProcessMeasurement(measurement);
+      measurement.raw_measurements_
+          << kRadius * std::cos(radians), kRadius * std::sin(radians);
 
-    std::cout << measurement.raw_measurements_ << std::endl << std::endl;
-    std::cout << ukf.x_ << std::endl << std::endl;
-    std::cout << ukf.P_ << std::endl << std::endl << std::endl;
+      ukf.ProcessMeasurement(measurement);
 
-    measurement.timestamp_ += 2000000;
+      measurement.timestamp_ += 1000000;
+
+    } else {
+      ukf.Prediction(1.0);
+    }
   }
 
-  Eigen::VectorXd expected(5);
-  expected << 3.0, 0.0, 3 * M_PI / 180.0, M_PI / 2, M_PI / 180.0;
-
-  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+  Eigen::VectorXd expected(2);
+  expected << kRadius, 0.0;
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_.head(2));
 }

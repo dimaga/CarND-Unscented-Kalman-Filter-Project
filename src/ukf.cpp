@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{30.0};
+const double kStdA{30};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{30.0};
+const double kStdYawdd{30};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -40,7 +40,8 @@ const double kAlpha{1};
 const double kBeta{2.0};
 
 double getKappa(int n) {
-  return 3 - n;
+  // Set to obtain positive W0Mean and W0Covariance
+  return 10 - n;
 }
 
 double getLambda(int n) {
@@ -58,7 +59,7 @@ double getW0Covariance(int n) {
 
 double getW1ThroughN(int n) {
   const double lambda = getLambda(n);
-  return 0.5 / (n + lambda);
+  return 0.5 / (lambda + n);
 }
 
 /**
@@ -158,6 +159,13 @@ void UKF::ProcessMeasurement(const MeasurementPackage& meas_package) {
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
+  // Bound covariance matrix coefficients for Numeric Stability
+  Eigen::JacobiSVD<MatrixXd> svd(P_, Eigen::ComputeFullU);
+  MatrixXd diagP(P_.rows(), P_.cols());
+  diagP.setZero();
+  diagP.diagonal() = svd.singularValues().cwiseMax(1e-10).cwiseMin(100000.0);
+  P_ = (svd.matrixU() * diagP * svd.matrixU().transpose()).eval();
+
   MatrixXd P_aug(static_cast<int>(kNxAug), static_cast<int>(kNxAug));
   P_aug.setZero();
   P_aug.topLeftCorner(kNx, kNx) = P_;
@@ -187,34 +195,32 @@ void UKF::Prediction(double delta_t) {
     if (std::abs(src[kYawRate]) > 1e-5) {
       const double v_yr = src[kVelocity] / src[kYawRate];
 
-      dst[kPosX] = src[kPosX]
-          + v_yr * (sin(src[kYaw] + src[kYawRate] * delta_t) - sin(src[kYaw]))
-          + 0.5 * delta_t * delta_t * cos(src[kYaw]) * src[kNoiseAccel];
+      dst[kPosX] +=
+          v_yr * (sin(src[kYaw] + src[kYawRate] * delta_t) - sin(src[kYaw]));
 
-      dst[kPosY] = src[kPosY]
-          + v_yr * (-cos(src[kYaw] + src[kYawRate] * delta_t) + cos(src[kYaw]))
-          + 0.5 * delta_t * delta_t * sin(src[kYaw]) * src[kNoiseAccel];
+      dst[kPosY] +=
+          v_yr * (-cos(src[kYaw] + src[kYawRate] * delta_t) + cos(src[kYaw]));
+
     } else {
-      dst[kPosX] = src[kPosX]
-          + (src[kVelocity] * cos(src[kYaw])
-          + 0.5 * delta_t * cos(src[kYaw]) * src[kNoiseAccel]) * delta_t;
-
-      dst[kPosY] = src[kPosY]
-          + (src[kVelocity] * sin(src[kYaw])
-          + 0.5 * delta_t * sin(src[kYaw]) * src[kNoiseAccel]) * delta_t;
+      dst[kPosX] += src[kVelocity] * cos(src[kYaw]) * delta_t;
+      dst[kPosY] += src[kVelocity] * sin(src[kYaw]) * delta_t;
     }
 
-    dst[kVelocity] = src[kVelocity] + delta_t * src[kNoiseAccel];
+    dst[kPosX] += 0.5 * delta_t * delta_t * cos(src[kYaw]) * src[kNoiseAccel];
+    dst[kPosY] += 0.5 * delta_t * delta_t * sin(src[kYaw]) * src[kNoiseAccel];
+
+    dst[kVelocity] += delta_t * src[kNoiseAccel];
 
     dst[kYaw] = normPi(
         src[kYaw] + delta_t * src[kYawRate]
             + 0.5 * delta_t * delta_t * src[kNoiseYawAccel]);
 
-    dst[kYawRate] = src[kYawRate] + delta_t * src[kNoiseYawAccel];
+    dst[kYawRate] += delta_t * src[kNoiseYawAccel];
   }
 
   const double otherW = getW1ThroughN(kNxAug);
   const double w0Mean = getW0Mean(kNxAug);
+  const double w0Cov = getW0Covariance(kNxAug);
 
   // 0th item is added in the end for slightly better numeric robustness.
   // It usually has the largest magnitude.
@@ -250,7 +256,7 @@ void UKF::Prediction(double delta_t) {
 
   VectorXd diff = Xsig_pred_.col(0).head<kNx>() - x_;
   diff[kYaw] = normPi(diff[kYaw]);
-  P_ += getW0Covariance(kNxAug) * diff * diff.transpose();
+  P_ += w0Cov * diff * diff.transpose();
 }
 
 /**
