@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{30};
+const double kStdA{30.0};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{30};
+const double kStdYawdd{30.0};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -35,7 +35,7 @@ const double kStdRadrd{0.3};
 // of Kalman and Bayesian Filters in Python by Roger R Labbe Jr book,
 // January 14, 2017 edition
 
-const double kAlpha{1.0};
+const double kAlpha{1};
 
 const double kBeta{2.0};
 
@@ -65,11 +65,12 @@ double getW1ThroughN(int n) {
  * Angle normalization
  */
 double normPi(double angleRad) {
-  while (angleRad > M_PI) {
+  angleRad = std::fmod(angleRad, 2 * M_PI);
+  if (angleRad > M_PI) {
     angleRad -= 2 * M_PI;
   }
 
-  while (angleRad < -M_PI) {
+  if (angleRad < -M_PI) {
     angleRad += 2 * M_PI;
   }
 
@@ -92,7 +93,7 @@ UKF::UKF()
  * @param {MeasurementPackage} meas_package The latest measurement data of
  * either radar or laser.
  */
-void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
+void UKF::ProcessMeasurement(const MeasurementPackage& meas_package) {
   if (!is_initialized_) {
     switch (meas_package.sensor_type_) {
       case MeasurementPackage::LASER: {
@@ -129,7 +130,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     return;
   }
 
-  const double delta_t = (time_us_ - meas_package.timestamp_) * 1e-6;
+  const double delta_t = (meas_package.timestamp_ - time_us_) * 1e-6;
   time_us_ = meas_package.timestamp_;
 
   Prediction(delta_t);
@@ -177,21 +178,21 @@ void UKF::Prediction(double delta_t) {
   }
 
   for (int i = 0, cols = Xsig_pred_.cols(); i < cols; ++i) {
-    const Eigen::VectorXd src = Xsig_pred_.col(i);
-    Eigen::MatrixXd::ColXpr dst = Xsig_pred_.col(i);
+    const VectorXd src = Xsig_pred_.col(i);
+    MatrixXd::ColXpr dst = Xsig_pred_.col(i);
 
     using std::sin;
     using std::cos;
 
     if (std::abs(src[kYawRate]) > 1e-5) {
+      const double v_yr = src[kVelocity] / src[kYawRate];
+
       dst[kPosX] = src[kPosX]
-          + src[kVelocity] / src[kYawRate]
-              * (sin(src[kYaw] + src[kYawRate] * delta_t) - sin(src[kYaw]))
+          + v_yr * (sin(src[kYaw] + src[kYawRate] * delta_t) - sin(src[kYaw]))
           + 0.5 * delta_t * delta_t * cos(src[kYaw]) * src[kNoiseAccel];
 
       dst[kPosY] = src[kPosY]
-          + src[kVelocity] / src[kYawRate]
-              * (-cos(src[kYaw] + src[kYawRate] * delta_t) + cos(src[kYaw]))
+          + v_yr * (-cos(src[kYaw] + src[kYawRate] * delta_t) + cos(src[kYaw]))
           + 0.5 * delta_t * delta_t * sin(src[kYaw]) * src[kNoiseAccel];
     } else {
       dst[kPosX] = src[kPosX]
@@ -256,11 +257,10 @@ void UKF::Prediction(double delta_t) {
  * Updates the state and the state covariance matrix using a laser measurement.
  * @param {MeasurementPackage} meas_package
  */
-void UKF::UpdateLidar(MeasurementPackage meas_package) {
+void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::LASER == meas_package.sensor_type_);
 
-  //TODO: Replace with UKF, compare RMSE. If the same, keep linear UKF with
-  //TODO: stable covariance matrix calculation
+  // Since LASER is a linear sensor, Kalman Filter produces same result as UKF
 
   MatrixXd R(2, 2);
   R.setIdentity();
@@ -274,22 +274,86 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   const MatrixXd S = (H * P_ * H.transpose() + R);
   const MatrixXd K = (P_ * H.transpose() * S.inverse());
   const VectorXd y = meas_package.raw_measurements_ - H * x_;
+
   x_ += K * y;
-  P_ -= (K * H * P_).eval();
+  x_(kYaw) = normPi(x_(kYaw));
+
+  // More stable Joseph’s form covariance update from
+  // https://en.wikipedia.org/wiki/Kalman_filter
+  // instead of P_ -= (K * H * P_).eval();
+  MatrixXd identity(P_.rows(), P_.cols());
+  identity.setIdentity();
+
+  P_ = ((identity - K * H) * P_ * (identity - K * H).transpose()
+      + K * R * K.transpose()).eval();
 }
 
 /**
  * Updates the state and the state covariance matrix using a radar measurement.
  * @param {MeasurementPackage} meas_package
  */
-void UKF::UpdateRadar(MeasurementPackage meas_package) {
+void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::RADAR == meas_package.sensor_type_);
-  /**
-  TODO:
 
-  Complete this function! Use radar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
+  /*
+  //create matrix for sigma points in measurement space
+  MatrixXd Zsig(2, static_cast<int>(2 * kNxAug + 1));
 
-  You'll also need to calculate the radar NIS.
-  */
+  //mean predicted measurement
+  VectorXd z_pred(2);
+
+  //measurement covariance matrix S
+  MatrixXd S(2, 2);
+
+  for (int ci = 0, cols = Xsig_pred_.cols(); ci < cols; ++ci) {
+    const MatrixXd::ColXpr src = Xsig_pred_.col(ci);
+    MatrixXd::ColXpr dst = Zsig.col(ci);
+
+    dst = src.head<2>();
+
+    // TODO:
+    dst[0] = std::sqrt(src[px] * src[px] + src[py] * src[py]);
+    dst[1] = std::atan2(src[py], src[px]);
+    dst[2] = (src[px] * src[v] * std::cos(src[phi])
+        + src[py] * src[v] * std::sin(src[phi])) / dst[0];
+  }
+
+  const double otherW = getW1ThroughN(kNxAug);
+  const double w0Mean = getW0Mean(kNxAug);
+  const double w0Cov = getW0Covariance(kNxAug);
+
+  z_pred.setZero();
+  for (int ci = 1, cols = Zsig.cols(); ci < cols; ++ci) {
+    z_pred += otherW * Zsig.col(ci);
+  }
+  z_pred += w0Mean * Zsig.col(0);
+
+  S.setIdentity();
+  S(0, 0) = kStdLaspx * kStdLaspx;
+  S(1, 1) = kStdLaspy * kStdLaspy;
+  for (int ci = 1, cols = Zsig.cols(); ci < cols; ++ci) {
+    VectorXd diff = Zsig.col(ci) - z_pred;
+    S += otherW * diff * diff.transpose();
+  }
+
+  VectorXd diff = Zsig.col(0) - z_pred;
+  S += getW0Covariance(kNxAug) * diff * diff.transpose();
+
+  MatrixXd Tc(static_cast<int>(kNx), 2);
+  Tc.setZero();
+  for(int ci = 0, cols = Zsig.cols(); ci < cols; ++ci) {
+    VectorXd diffX = Xsig_pred_.col(ci).head<kNx>() - x_;
+    diffX[kYaw] = normPi(diffX[kYaw]);
+    VectorXd diffZ = Zsig.col(ci) - z_pred;
+
+    const double w = 0 == ci ? w0Cov : otherW;
+    Tc += w * diffX * diffZ.transpose();
+  }
+
+  const MatrixXd K = Tc * S.inverse();
+  const VectorXd diffZ = meas_package.raw_measurements_ - z_pred;
+  x_ += K * diffZ;
+
+  // TODO: try Joseph's form
+  P_ -= K * S * K.transpose();*/
 }

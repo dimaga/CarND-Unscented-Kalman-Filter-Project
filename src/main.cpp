@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <cstdint>
+#include <cmath>
 #include <stdlib.h>
 #include "Eigen/Dense"
 #include "ukf.h"
@@ -171,6 +172,9 @@ int main(int argc, char *argv[]) {
     out_file_ << ukf.x_(UKF::kYaw) << "\t";
     out_file_ << ukf.x_(UKF::kYawRate) << "\t";
 
+    using std::cos;
+    using std::sin;
+
     // output the measurements
     if (MeasurementPackage::LASER == measurement.sensor_type_) {
       // output the estimation
@@ -204,10 +208,10 @@ int main(int argc, char *argv[]) {
     // convert ukf x vector to cartesian to compare to ground truth
     VectorXd ukf_x_cartesian_ = VectorXd(4);
 
-    const double x_estimate_ = ukf.x_(0);
-    const double y_estimate_ = ukf.x_(1);
-    const double vx_estimate_ = ukf.x_(2) * cos(ukf.x_(3));
-    const double vy_estimate_ = ukf.x_(2) * sin(ukf.x_(3));
+    const double x_estimate_ = ukf.x_(UKF::kPosX);
+    const double y_estimate_ = ukf.x_(UKF::kPosY);
+    const double vx_estimate_ = ukf.x_(UKF::kVelocity) * cos(ukf.x_(UKF::kYaw));
+    const double vy_estimate_ = ukf.x_(UKF::kVelocity) * sin(ukf.x_(UKF::kYaw));
 
     ukf_x_cartesian_ << x_estimate_, y_estimate_, vx_estimate_, vy_estimate_;
 

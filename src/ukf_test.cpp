@@ -96,3 +96,32 @@ TEST(UkfPrediction, QuaterCircleInOneUpdate) {
   ASSERT_PRED2(IsEigenEqual(), ukf.P_, ukf.P_.transpose());
   ASSERT_GT(ukf.P_.eigenvalues()[0].real(), 0.0001);
 }
+
+TEST(UkfProcessMeasurement, LaserTrajectory) {
+  UKF ukf;
+  MeasurementPackage measurement;
+  measurement.sensor_type_ = MeasurementPackage::LASER;
+  measurement.raw_measurements_.resize(2);
+
+  measurement.timestamp_ = 0;
+
+  for (int i = 0; i <= 180; ++i) {
+    const double angle = 2 * i * M_PI / 180.0;
+
+    measurement.raw_measurements_
+        << 3.0 * std::cos(angle), 3.0 * std::sin(angle);
+
+    ukf.ProcessMeasurement(measurement);
+
+    std::cout << measurement.raw_measurements_ << std::endl << std::endl;
+    std::cout << ukf.x_ << std::endl << std::endl;
+    std::cout << ukf.P_ << std::endl << std::endl << std::endl;
+
+    measurement.timestamp_ += 2000000;
+  }
+
+  Eigen::VectorXd expected(5);
+  expected << 3.0, 0.0, 3 * M_PI / 180.0, M_PI / 2, M_PI / 180.0;
+
+  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_);
+}
