@@ -105,25 +105,53 @@ TEST(UkfProcessMeasurement, LaserTrajectory) {
 
   measurement.timestamp_ = 0;
 
-  const double kRadius = 30;
+  const double kRadius = 1000.0;
 
   for (int degrees = 0; degrees <= 360; ++degrees) {
-    if (degrees < 180) {
-      const double radians = degrees * M_PI / 180.0;
+    const double radians = degrees * M_PI / 180.0;
+    const double pos_x = kRadius * std::cos(radians);
+    const double pos_y = kRadius * std::sin(radians);
+    measurement.raw_measurements_  << pos_x, pos_y;
 
-      measurement.raw_measurements_
-          << kRadius * std::cos(radians), kRadius * std::sin(radians);
-
+    if (degrees < 360) {
       ukf.ProcessMeasurement(measurement);
-
-      measurement.timestamp_ += 1000000;
-
     } else {
       ukf.Prediction(1.0);
     }
+
+    measurement.timestamp_ += 1000000;
   }
 
   Eigen::VectorXd expected(2);
   expected << kRadius, 0.0;
+  ASSERT_PRED2(IsEigenEqual(10.0), expected, ukf.x_.head(2));
+}
+
+TEST(UkfProcessMeasurement, RadarTrajectory) {
+  UKF ukf;
+  MeasurementPackage measurement;
+  measurement.sensor_type_ = MeasurementPackage::RADAR;
+  measurement.raw_measurements_.resize(3);
+
+  measurement.timestamp_ = 0;
+
+  for (int diagPos = -100; diagPos <= 100; ++diagPos) {
+    const double ro = std::abs(diagPos);
+    const double phi = diagPos < 0 ? -3 * M_PI / 4 : M_PI / 4;
+    const double ro_dot = diagPos < 0 ? -1 : 1;
+
+    measurement.raw_measurements_  << ro, phi, ro_dot;
+
+    if (diagPos < 50) {
+      ukf.ProcessMeasurement(measurement);
+    } else {
+      ukf.Prediction(1.0);
+    }
+
+    measurement.timestamp_ += 1000000;
+  }
+
+  Eigen::VectorXd expected(2);
+  expected << 100 / std::sqrt(2), 100 / std::sqrt(2);
   ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_.head(2));
 }

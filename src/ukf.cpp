@@ -86,7 +86,7 @@ UKF::UKF()
                static_cast<int>(UKF::kNxAug * 2 + 1)) {
   x_.setZero();
   P_.setIdentity();
-  P_ *= 10000;
+  P_ *= 100000;
   Xsig_pred_.setZero();
 }
 
@@ -159,11 +159,13 @@ void UKF::ProcessMeasurement(const MeasurementPackage& meas_package) {
  * measurement and this one.
  */
 void UKF::Prediction(double delta_t) {
-  // Bound covariance matrix coefficients for Numeric Stability
+  assert(delta_t >= 0);
+
+  // Bound covariance matrix coefficients to prevent NaN-s and Inf-s
   Eigen::JacobiSVD<MatrixXd> svd(P_, Eigen::ComputeFullU);
   MatrixXd diagP(P_.rows(), P_.cols());
   diagP.setZero();
-  diagP.diagonal() = svd.singularValues().cwiseMax(1e-10).cwiseMin(100000.0);
+  diagP.diagonal() = svd.singularValues().cwiseMax(1e-10).cwiseMin(1e10);
   P_ = (svd.matrixU() * diagP * svd.matrixU().transpose()).eval();
 
   MatrixXd P_aug(static_cast<int>(kNxAug), static_cast<int>(kNxAug));
@@ -185,12 +187,12 @@ void UKF::Prediction(double delta_t) {
     Xsig_pred_.col(i + 1 + kNxAug) = x_aug - coeff * A.col(i);
   }
 
+  using std::sin;
+  using std::cos;
+
   for (int i = 0, cols = Xsig_pred_.cols(); i < cols; ++i) {
     const VectorXd src = Xsig_pred_.col(i);
     MatrixXd::ColXpr dst = Xsig_pred_.col(i);
-
-    using std::sin;
-    using std::cos;
 
     if (std::abs(src[kYawRate]) > 1e-5) {
       const double v_yr = src[kVelocity] / src[kYawRate];
@@ -301,65 +303,84 @@ void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
 void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::RADAR == meas_package.sensor_type_);
 
-  /*
-  //create matrix for sigma points in measurement space
-  MatrixXd Zsig(2, static_cast<int>(2 * kNxAug + 1));
+  MatrixXd Zsig(3, static_cast<int>(2 * kNxAug + 1));
 
-  //mean predicted measurement
-  VectorXd z_pred(2);
+  using std::sin;
+  using std::cos;
 
-  //measurement covariance matrix S
-  MatrixXd S(2, 2);
+  for (int i = 0, cols = Xsig_pred_.cols(); i < cols; ++i) {
+    const MatrixXd::ColXpr src = Xsig_pred_.col(i);
+    MatrixXd::ColXpr dst = Zsig.col(i);
 
-  for (int ci = 0, cols = Xsig_pred_.cols(); ci < cols; ++ci) {
-    const MatrixXd::ColXpr src = Xsig_pred_.col(ci);
-    MatrixXd::ColXpr dst = Zsig.col(ci);
+    dst[0] = std::sqrt(src[kPosX] * src[kPosX] + src[kPosY] * src[kPosY]);
+    if(dst[0] < 1e-10) {
+      return;
+    }
 
-    dst = src.head<2>();
+    dst[1] = std::atan2(src[kPosY], src[kPosX]);
 
-    // TODO:
-    dst[0] = std::sqrt(src[px] * src[px] + src[py] * src[py]);
-    dst[1] = std::atan2(src[py], src[px]);
-    dst[2] = (src[px] * src[v] * std::cos(src[phi])
-        + src[py] * src[v] * std::sin(src[phi])) / dst[0];
+    dst[2] = (src[kPosX] * src[kVelocity] * std::cos(src[kYaw])
+        + src[kPosY] * src[kVelocity] * std::sin(src[kYaw])) / dst[0];
   }
 
   const double otherW = getW1ThroughN(kNxAug);
   const double w0Mean = getW0Mean(kNxAug);
   const double w0Cov = getW0Covariance(kNxAug);
 
+  double sinPhi = 0.0;
+  double cosPhi = 0.0;
+
+  VectorXd z_pred(3);
   z_pred.setZero();
-  for (int ci = 1, cols = Zsig.cols(); ci < cols; ++ci) {
-    z_pred += otherW * Zsig.col(ci);
+  for (int i = 1, cols = Zsig.cols(); i < cols; ++i) {
+    z_pred += otherW * Zsig.col(i);
+
+    const double phi = Zsig.col(i)(1);
+    sinPhi += otherW * sin(phi);
+    cosPhi += otherW * cos(phi);
   }
   z_pred += w0Mean * Zsig.col(0);
 
+  const double phi = Zsig.col(0)(1);
+  sinPhi += w0Mean * sin(phi);
+  cosPhi += w0Mean * cos(phi);
+  if (std::abs(sinPhi) > 1e-10 || std::abs(cosPhi) > 1e-10) {
+    z_pred[1] = std::atan2(sinPhi, cosPhi);
+  } else {
+    z_pred[1] = Zsig.col(0)(1);
+  }
+
+  MatrixXd S(3, 3);
   S.setIdentity();
-  S(0, 0) = kStdLaspx * kStdLaspx;
-  S(1, 1) = kStdLaspy * kStdLaspy;
-  for (int ci = 1, cols = Zsig.cols(); ci < cols; ++ci) {
-    VectorXd diff = Zsig.col(ci) - z_pred;
+  S(0, 0) = kStdRadr * kStdRadr;
+  S(1, 1) = kStdRadphi * kStdRadphi;
+  S(2, 2) = kStdRadrd * kStdRadrd;
+  for (int i = 1, cols = Zsig.cols(); i < cols; ++i) {
+    VectorXd diff = Zsig.col(i) - z_pred;
+    diff[1] = normPi(diff[1]);
     S += otherW * diff * diff.transpose();
   }
 
   VectorXd diff = Zsig.col(0) - z_pred;
-  S += getW0Covariance(kNxAug) * diff * diff.transpose();
+  diff[1] = normPi(diff[1]);
+  S += w0Cov * diff * diff.transpose();
 
-  MatrixXd Tc(static_cast<int>(kNx), 2);
+  MatrixXd Tc(static_cast<int>(kNx), 3);
   Tc.setZero();
-  for(int ci = 0, cols = Zsig.cols(); ci < cols; ++ci) {
-    VectorXd diffX = Xsig_pred_.col(ci).head<kNx>() - x_;
+  for(int i = 0, cols = Zsig.cols(); i < cols; ++i) {
+    VectorXd diffX = Xsig_pred_.col(i).head<kNx>() - x_;
     diffX[kYaw] = normPi(diffX[kYaw]);
-    VectorXd diffZ = Zsig.col(ci) - z_pred;
+    VectorXd diffZ = Zsig.col(i) - z_pred;
+    diff[1] = normPi(diff[1]);
 
-    const double w = 0 == ci ? w0Cov : otherW;
+    const double w = 0 == i ? w0Cov : otherW;
     Tc += w * diffX * diffZ.transpose();
   }
 
   const MatrixXd K = Tc * S.inverse();
-  const VectorXd diffZ = meas_package.raw_measurements_ - z_pred;
+  VectorXd diffZ = meas_package.raw_measurements_ - z_pred;
+  diffZ[1] = normPi(diffZ[1]);
   x_ += K * diffZ;
-
-  // TODO: try Joseph's form
-  P_ -= K * S * K.transpose();*/
+  x_(kYaw) = normPi(x_(kYaw));
+  P_ -= K * S * K.transpose();
 }
