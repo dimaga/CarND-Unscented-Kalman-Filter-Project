@@ -371,7 +371,7 @@ void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
     VectorXd diffX = Xsig_pred_.col(i).head<kNx>() - x_;
     diffX[kYaw] = normPi(diffX[kYaw]);
     VectorXd diffZ = Zsig.col(i) - z_pred;
-    diff[1] = normPi(diff[1]);
+    diffZ[1] = normPi(diffZ[1]);
 
     const double w = 0 == i ? w0Cov : otherW;
     Tc += w * diffX * diffZ.transpose();
