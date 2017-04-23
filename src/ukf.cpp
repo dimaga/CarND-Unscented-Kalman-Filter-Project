@@ -194,7 +194,9 @@ void UKF::Prediction(double delta_t) {
   using std::sin;
   using std::cos;
 
-  for (int i = 0, cols = Xsig_pred_.cols(); i < cols; ++i) {
+  const int cols = Xsig_pred_.cols();
+
+  for (int i = 0; i < cols; ++i) {
     const VectorXd src = Xsig_pred_.col(i);
     MatrixXd::ColXpr dst = Xsig_pred_.col(i);
 
@@ -234,7 +236,7 @@ void UKF::Prediction(double delta_t) {
   x_.setZero();
   double sinYaw = 0.0;
   double cosYaw = 0.0;
-  for (int i = 1, cols = Xsig_pred_.cols(); i < cols; ++i) {
+  for (int i = 1; i < cols; ++i) {
     x_ += otherW * Xsig_pred_.col(i).head<kNx>();
 
     const double yaw = Xsig_pred_.col(i)(kYaw);
@@ -254,7 +256,7 @@ void UKF::Prediction(double delta_t) {
 
   P_.setZero();
 
-  for (int i = 1, cols = Xsig_pred_.cols(); i < cols; ++i) {
+  for (int i = 1; i < cols; ++i) {
     VectorXd diff = Xsig_pred_.col(i).head<kNx>() - x_;
     diff[kYaw] = normPi(diff[kYaw]);
     P_ += otherW * diff * diff.transpose();
