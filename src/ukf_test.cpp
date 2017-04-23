@@ -140,7 +140,7 @@ TEST(UkfProcessMeasurement, RadarTrajectory) {
     const double phi = diagPos < 0 ? -3 * M_PI / 4 : M_PI / 4;
     const double ro_dot = diagPos < 0 ? -1 : 1;
 
-    measurement.raw_measurements_  << ro, phi, ro_dot;
+    measurement.raw_measurements_ << ro, phi, ro_dot;
 
     if (diagPos < 50) {
       ukf.ProcessMeasurement(measurement);
@@ -153,5 +153,5 @@ TEST(UkfProcessMeasurement, RadarTrajectory) {
 
   Eigen::VectorXd expected(2);
   expected << 100 / std::sqrt(2), 100 / std::sqrt(2);
-  ASSERT_PRED2(IsEigenEqual(), expected, ukf.x_.head(2));
+  ASSERT_PRED2(IsEigenEqual(1e-1), expected, ukf.x_.head(2));
 }

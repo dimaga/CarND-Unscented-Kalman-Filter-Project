@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{30};
+const double kStdA{3};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{30};
+const double kStdYawdd{0.001};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -86,7 +86,11 @@ UKF::UKF()
                static_cast<int>(UKF::kNxAug * 2 + 1)) {
   x_.setZero();
   P_.setIdentity();
-  P_ *= 100000;
+  P_(kPosX, kPosX) = 10000.0;
+  P_(kPosY, kPosY) = 10000.0;
+  P_(kVelocity, kVelocity) = 900.0;
+  P_(kYaw, kYaw) = 0.01;
+  P_(kYawRate, kYawRate) = 0.0001;
   Xsig_pred_.setZero();
 }
 
@@ -303,24 +307,30 @@ void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
 void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::RADAR == meas_package.sensor_type_);
 
-  MatrixXd Zsig(3, static_cast<int>(2 * kNxAug + 1));
+  const int kZRo = 0;
+  const int kZPhi = 1;
+  const int kZRoDot = 2;
+  const int kZ = 3;
+
+  const int cols = Xsig_pred_.cols();
+  MatrixXd Zsig(kZ, cols);
 
   using std::sin;
   using std::cos;
 
-  for (int i = 0, cols = Xsig_pred_.cols(); i < cols; ++i) {
+  for (int i = 0; i < cols; ++i) {
     const MatrixXd::ColXpr src = Xsig_pred_.col(i);
     MatrixXd::ColXpr dst = Zsig.col(i);
 
-    dst[0] = std::sqrt(src[kPosX] * src[kPosX] + src[kPosY] * src[kPosY]);
-    if(dst[0] < 1e-10) {
+    dst[kZRo] = std::sqrt(src[kPosX] * src[kPosX] + src[kPosY] * src[kPosY]);
+    if (dst[kZRo] < 1e-10) {
       return;
     }
 
-    dst[1] = std::atan2(src[kPosY], src[kPosX]);
+    dst[kZPhi] = std::atan2(src[kPosY], src[kPosX]);
 
-    dst[2] = (src[kPosX] * src[kVelocity] * std::cos(src[kYaw])
-        + src[kPosY] * src[kVelocity] * std::sin(src[kYaw])) / dst[0];
+    dst[kZRoDot] = (src[kPosX] * src[kVelocity] * cos(src[kYaw])
+                  + src[kPosY] * src[kVelocity] * sin(src[kYaw])) / dst[kZRo];
   }
 
   const double otherW = getW1ThroughN(kNxAug);
@@ -330,48 +340,48 @@ void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
   double sinPhi = 0.0;
   double cosPhi = 0.0;
 
-  VectorXd z_pred(3);
+  VectorXd z_pred(kZ);
   z_pred.setZero();
-  for (int i = 1, cols = Zsig.cols(); i < cols; ++i) {
+  for (int i = 1; i < cols; ++i) {
     z_pred += otherW * Zsig.col(i);
 
-    const double phi = Zsig.col(i)(1);
+    const double phi = Zsig.col(i)(kZPhi);
     sinPhi += otherW * sin(phi);
     cosPhi += otherW * cos(phi);
   }
   z_pred += w0Mean * Zsig.col(0);
 
-  const double phi = Zsig.col(0)(1);
+  const double phi = Zsig.col(0)(kZPhi);
   sinPhi += w0Mean * sin(phi);
   cosPhi += w0Mean * cos(phi);
   if (std::abs(sinPhi) > 1e-10 || std::abs(cosPhi) > 1e-10) {
-    z_pred[1] = std::atan2(sinPhi, cosPhi);
+    z_pred[kZPhi] = std::atan2(sinPhi, cosPhi);
   } else {
-    z_pred[1] = Zsig.col(0)(1);
+    z_pred[kZPhi] = Zsig.col(0)(kZPhi);
   }
 
-  MatrixXd S(3, 3);
+  MatrixXd S(kZ, kZ);
   S.setIdentity();
-  S(0, 0) = kStdRadr * kStdRadr;
-  S(1, 1) = kStdRadphi * kStdRadphi;
-  S(2, 2) = kStdRadrd * kStdRadrd;
-  for (int i = 1, cols = Zsig.cols(); i < cols; ++i) {
+  S(kZRo, kZRo) = kStdRadr * kStdRadr;
+  S(kZPhi, kZPhi) = kStdRadphi * kStdRadphi;
+  S(kZRoDot, kZRoDot) = kStdRadrd * kStdRadrd;
+  for (int i = 1; i < cols; ++i) {
     VectorXd diff = Zsig.col(i) - z_pred;
-    diff[1] = normPi(diff[1]);
+    diff[kZPhi] = normPi(diff[kZPhi]);
     S += otherW * diff * diff.transpose();
   }
 
   VectorXd diff = Zsig.col(0) - z_pred;
-  diff[1] = normPi(diff[1]);
+  diff[kZPhi] = normPi(diff[kZPhi]);
   S += w0Cov * diff * diff.transpose();
 
-  MatrixXd Tc(static_cast<int>(kNx), 3);
+  MatrixXd Tc(static_cast<int>(kNx), kZ);
   Tc.setZero();
-  for(int i = 0, cols = Zsig.cols(); i < cols; ++i) {
+  for (int i = 0; i < cols; ++i) {
     VectorXd diffX = Xsig_pred_.col(i).head<kNx>() - x_;
     diffX[kYaw] = normPi(diffX[kYaw]);
     VectorXd diffZ = Zsig.col(i) - z_pred;
-    diffZ[1] = normPi(diffZ[1]);
+    diffZ[kZPhi] = normPi(diffZ[kZPhi]);
 
     const double w = 0 == i ? w0Cov : otherW;
     Tc += w * diffX * diffZ.transpose();
@@ -379,7 +389,7 @@ void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
 
   const MatrixXd K = Tc * S.inverse();
   VectorXd diffZ = meas_package.raw_measurements_ - z_pred;
-  diffZ[1] = normPi(diffZ[1]);
+  diffZ[kZPhi] = normPi(diffZ[kZPhi]);
   x_ += K * diffZ;
   x_(kYaw) = normPi(x_(kYaw));
   P_ -= K * S * K.transpose();
