@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{0.35};
+const double kStdA{0.5};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{0.2251};
+const double kStdYawdd{0.43};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -86,9 +86,6 @@ UKF::UKF()
                static_cast<int>(UKF::kNxAug * 2 + 1)) {
   x_.setZero();
   P_.setIdentity();
-  P_(2, 2) *= 1.1;
-  //P_(3, 3) *= 1.1;
-  //P_(4, 4) *= 1.1;
   Xsig_pred_.setZero();
 }
 
