@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{5};
+const double kStdA{0.35};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{0.7};
+const double kStdYawdd{0.2251};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -37,11 +37,11 @@ const double kStdRadrd{0.3};
 
 const double kAlpha{1};
 
-const double kBeta{2.0};
+const double kBeta{4.0};
 
 double getKappa(int n) {
   // Set to obtain positive W0Mean and W0Covariance
-  return 10 - n;
+  return 9 - n;
 }
 
 double getLambda(int n) {
@@ -86,6 +86,9 @@ UKF::UKF()
                static_cast<int>(UKF::kNxAug * 2 + 1)) {
   x_.setZero();
   P_.setIdentity();
+  P_(2, 2) *= 1.1;
+  //P_(3, 3) *= 1.1;
+  //P_(4, 4) *= 1.1;
   Xsig_pred_.setZero();
 }
 
