@@ -135,23 +135,23 @@ TEST(UkfProcessMeasurement, RadarTrajectory) {
 
   measurement.timestamp_ = 0;
 
-  for (int diagPos = -100; diagPos <= 100; ++diagPos) {
+  for (int diagPos = -1000; diagPos <= 1000; diagPos += 1) {
     const double ro = std::abs(diagPos);
     const double phi = diagPos < 0 ? -3 * M_PI / 4 : M_PI / 4;
-    const double ro_dot = diagPos < 0 ? -1 : 1;
+    const double ro_dot = diagPos < 0 ? -10 : 10;
 
     measurement.raw_measurements_ << ro, phi, ro_dot;
 
-    if (diagPos < 50) {
+    if (diagPos < 800) {
       ukf.ProcessMeasurement(measurement);
     } else {
-      ukf.Prediction(1.0);
+      ukf.Prediction(0.1);
     }
 
-    measurement.timestamp_ += 1000000;
+    measurement.timestamp_ += 100000;
   }
 
   Eigen::VectorXd expected(2);
-  expected << 100 / std::sqrt(2), 100 / std::sqrt(2);
+  expected << 1000 / std::sqrt(2), 1000 / std::sqrt(2);
   ASSERT_PRED2(IsEigenEqual(1e-1), expected, ukf.x_.head(2));
 }

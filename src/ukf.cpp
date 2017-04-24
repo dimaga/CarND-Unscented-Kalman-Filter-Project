@@ -11,10 +11,10 @@ using std::vector;
 
 namespace {
 ///* Process noise standard deviation longitudinal acceleration in m/s^2
-const double kStdA{3};
+const double kStdA{5};
 
 ///* Process noise standard deviation yaw acceleration in rad/s^2
-const double kStdYawdd{0.001};
+const double kStdYawdd{0.7};
 
 ///* Laser measurement noise standard deviation position1 in m
 const double kStdLaspx{0.15};
@@ -86,11 +86,6 @@ UKF::UKF()
                static_cast<int>(UKF::kNxAug * 2 + 1)) {
   x_.setZero();
   P_.setIdentity();
-  P_(kPosX, kPosX) = 10000.0;
-  P_(kPosY, kPosY) = 10000.0;
-  P_(kVelocity, kVelocity) = 900.0;
-  P_(kYaw, kYaw) = 0.01;
-  P_(kYawRate, kYawRate) = 0.0001;
   Xsig_pred_.setZero();
 }
 
@@ -113,15 +108,28 @@ void UKF::ProcessMeasurement(const MeasurementPackage& meas_package) {
         const double phi = meas_package.raw_measurements_[1];
         const double ro_dot = meas_package.raw_measurements_[2];
 
-        x_(kPosX) = ro * std::cos(phi);
-        x_(kPosY) = ro * std::sin(phi);
+        using std::cos;
+        using std::sin;
+
+        x_(kPosX) = ro * cos(phi);
+        x_(kPosY) = ro * sin(phi);
         x_(kVelocity) = ro_dot;
         x_(kYaw) = phi;
         x_(kYawRate) = 0.0;
 
+        // Transforming measurement noise into state space in an EKF-like manner
+        Eigen::Matrix2d jacPosRo;
+
+        jacPosRo
+            <<
+            cos(phi), ro * -sin(phi),
+            sin(phi), ro * cos(phi);
+
         P_(kPosX, kPosX) = kStdRadr * kStdRadr;
-        P_(kPosY, kPosY) = kStdRadr * kStdRadr;
-        P_(kVelocity, kVelocity) = kStdRadrd * kStdRadrd;
+        P_(kPosY, kPosY) = kStdRadphi * kStdRadphi;
+
+        P_.topLeftCorner<2, 2>() = (
+            jacPosRo * P_.topLeftCorner<2, 2>() * jacPosRo.transpose()).eval();
         break;
       }
 
@@ -286,8 +294,11 @@ void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
   H(0, 0) = H(1, 1) = 1.0;
 
   const MatrixXd S = (H * P_ * H.transpose() + R);
-  const MatrixXd K = (P_ * H.transpose() * S.inverse());
+  const MatrixXd S_inv = S.inverse();
+  const MatrixXd K = (P_ * H.transpose() * S_inv);
   const VectorXd y = meas_package.raw_measurements_ - H * x_;
+
+  NIS_laser_ = y.dot(S_inv * y);
 
   x_ += K * y;
   x_(kYaw) = normPi(x_(kYaw));
@@ -389,9 +400,13 @@ void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
     Tc += w * diffX * diffZ.transpose();
   }
 
-  const MatrixXd K = Tc * S.inverse();
+  const MatrixXd S_inv = S.inverse();
+  const MatrixXd K = Tc * S_inv;
   VectorXd diffZ = meas_package.raw_measurements_ - z_pred;
   diffZ[kZPhi] = normPi(diffZ[kZPhi]);
+
+  NIS_radar_ = diffZ.dot(S_inv * diffZ);
+
   x_ += K * diffZ;
   x_(kYaw) = normPi(x_(kYaw));
   P_ -= K * S * K.transpose();
