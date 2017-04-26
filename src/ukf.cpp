@@ -150,12 +150,16 @@ void UKF::ProcessMeasurement(const MeasurementPackage& meas_package) {
 
   switch (meas_package.sensor_type_) {
     case MeasurementPackage::LASER: {
-      UpdateLidar(meas_package);
+      if (use_laser_) {
+        UpdateLidar(meas_package);
+      }
       break;
     }
 
     case MeasurementPackage::RADAR: {
-      UpdateRadar(meas_package);
+      if (use_radar_) {
+        UpdateRadar(meas_package);
+      }
       break;
     }
 
@@ -281,6 +285,7 @@ void UKF::Prediction(double delta_t) {
  */
 void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::LASER == meas_package.sensor_type_);
+  assert(use_laser_);
 
   // Since LASER is a linear sensor, Kalman Filter produces same result as UKF
 
@@ -319,6 +324,7 @@ void UKF::UpdateLidar(const MeasurementPackage& meas_package) {
  */
 void UKF::UpdateRadar(const MeasurementPackage& meas_package) {
   assert(MeasurementPackage::RADAR == meas_package.sensor_type_);
+  assert(use_radar_);
 
   const int kZRo = 0;
   const int kZPhi = 1;
