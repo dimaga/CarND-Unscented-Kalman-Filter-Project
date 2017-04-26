@@ -12,6 +12,8 @@ The project compilation and work have been verified under the following platform
 
 I used cmake 3.7.2 to build project files.
 
+If you have problems linking **UnscentedKFTests** under VS2015, go to Project Settings and set C\C++->Code Generation->Multithreaded Debug for all projects in Visual Studio IDE, then rebuild.
+
 ## Code Style
 
 To enforce [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html), I included Google's `cpplint.py` file available in `./src/Lint` folder. This tool expects installed python2.7. To check style of my code, run the following command line (from `./src/Lint`):
@@ -36,3 +38,18 @@ The code consists of the following modules:
 * `ground_truth_package.h`, `measurement_package.h` declares structures for ground truth and measurement data
 * `main.cpp` is an entry point for **UnscentedKF** application
 * `*_test.cpp` implement test cases for corresponding modules, run by **UnscentedKFTests** application
+
+## Passing Criteria
+
+**UnscentedKF** fits `obj_pose-laser-radar-synthetic-input.txt` with the following RMSE:
+
+```
+Accuracy - RMSE:
+0.0618334
+0.0837659
+ 0.318465
+ 0.213166
+Done!
+```
+
+This is below [.09, .10, .40, .30] passing criteria values
