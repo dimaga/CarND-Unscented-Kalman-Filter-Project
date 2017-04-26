@@ -1,46 +1,38 @@
-# Unscented Kalman Filter Project Starter Code
-Self-Driving Car Engineer Nanodegree Program
+# Extended Kalman Filter
+
+My solution of CarND-Unscented-Kalman-Filter-Project assignment from Udacity Self Driving Car nanodegree course, Term 2. See project assignment starter code in https://github.com/udacity/CarND-Unscented-Kalman-Filter-Project
 
 ---
 
 ## Dependencies
 
-* cmake >= v3.5
-* make >= v4.1
-* gcc/g++ >= v5.4
+The project compilation and work have been verified under the following platforms: 
+* Mac OX Sierra XCode 8.3.1 
+* Windows 10 Visual Studio 2015 64-bit
 
-## Basic Build Instructions
-
-1. Clone this repo.
-2. Make a build directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./UnscentedKF path/to/input.txt path/to/output.txt`. You can find
-   some sample inputs in 'data/'.
-    - eg. `./UnscentedKF ../data/sample-laser-radar-measurement-data-1.txt output.txt`
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+I used cmake 3.7.2 to build project files.
 
 ## Code Style
 
-Please stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html) as much as possible.
+To enforce [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html), I included Google's `cpplint.py` file available in `./src/Lint` folder. This tool expects installed python2.7. To check style of my code, run the following command line (from `./src/Lint`):
 
-## Generating Additional Data
+```
+./cpplint.py ../*.h ../*.cpp
+```
 
-This is optional!
+## Project Structure
 
-If you'd like to generate your own radar and lidar data, see the
-[utilities repo](https://github.com/udacity/CarND-Mercedes-SF-Utilities) for
-Matlab scripts that can generate additional data.
+The project consists of **UnscentedKF** and **UnscentedKFTests** applications, linking with **UnscentedKFLib** static library, which implements all the functionality.
 
-## Project Instructions and Rubric
+**UnscentedKF** application has the same command line syntax as in the original [repo](https://github.com/udacity/CarND-Unscented-Kalman-Filter-Project). Use the same build commands to generate and compile project files as described there.
 
-This information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/0949fca6-b379-42af-a919-ee50aa304e6a/lessons/c3eb3583-17b2-4d83-abf7-d852ae1b9fff/concepts/4d0420af-0527-4c9f-a5cd-56ee0fe4f09e)
-for instructions and the project rubric.
+For **UnscentedKFTests**, I used [GoogleTest](https://github.com/google/googletest) framework, cloned in `./lib` folder.
+
+For more expressive and laconic code, I enforced using C++11 standard in CMake file by `-std=c++11` command.
+
+The code consists of the following modules:
+* `ukf.h`/`.cpp` implements Unscented Kalman Filter mathematics and CTRV car model with Radar and Lidar sensors
+* `tools.h`/`.cpp` implements EvaluateRmse() function to calculate RMSE against data set
+* `ground_truth_package.h`, `measurement_package.h` declares structures for ground truth and measurement data
+* `main.cpp` is an entry point for **UnscentedKF** application
+* `*_test.cpp` implement test cases for corresponding modules, run by **UnscentedKFTests** application
